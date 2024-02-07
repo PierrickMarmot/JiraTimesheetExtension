@@ -1,8 +1,6 @@
 # JiraTimesheet
 
-<span style="display:block;text-align:center">
-	![logo](./logo.png)
-</span>
+![logo](./logo.png)
 
 ### Generate your month timesheet with the number of hours worked.
 
