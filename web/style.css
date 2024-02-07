@@ -1,0 +1,192 @@
+html, body { 
+  font-family: 'Roboto';
+  font-size: 1.0em;
+  background-color: #ffffff;
+  margin: 0px;
+  padding: 0px;
+  color: #172B4D;
+  min-width: 500px;
+}
+
+.primary-button {
+  background-color: #0D66E4;
+  border: none;
+  border-radius: 4px;
+  color: #ffffff;
+  padding: 8px 8px;
+  text-align: center;
+  vertical-align: middle;
+  text-decoration: none;
+  display: inline-block;
+  font-size: 16px;
+  margin: 0px;
+  cursor: pointer;
+}
+
+.primary-button:hover {
+  background-color: #0055CC;
+}
+
+.secondary-button {
+  background-color: #F3F4F5;
+  border: none;
+  border-radius: 4px;
+  color: #43546F;
+  padding: 8px 8px;
+  text-align: center;
+  vertical-align: middle;
+  text-decoration: none;
+  display: inline-block;
+  font-size: 16px;
+  margin: 0px;
+  cursor: pointer;
+}
+
+.secondary-button:hover {
+  background-color: #E1E3E7;
+}
+
+.material-symbols-outlined {
+  vertical-align: middle;
+}
+
+.link {
+  color: #0D66E4;
+  cursor: pointer;
+}
+
+.link:hover {
+  color: #0055CC;
+}
+
+h1 {
+  font-size: 1.2em;
+  margin: 16px;
+}
+
+.title {
+  padding: 0px 8px;
+  margin: 0px;
+}
+
+table, td, th {
+  border: 1px solid #DFE1E6;
+  text-align: center;
+}
+
+td, th {
+  padding: 4px 8px;
+}
+
+th {
+  background-color: #F7F8F9;
+}
+
+table {
+  border-collapse: collapse;
+  margin-left: 16px;
+  margin-right: 16px;
+  margin-bottom: 16px;
+}
+
+.thoffday {
+  background-color: #E7E9EB;
+}
+
+.tdoffday {
+  background-color: #F3F4F5;
+}
+
+.thtoday {
+  background-color: #0D66E4;
+  color: #ffffff;
+}
+
+.tdtoday {
+  background-color: #CCDFFF;
+  color: #0B66E4;
+}
+
+.timesheet {
+  overflow-x: scroll; 
+}
+
+.loading {
+  opacity: 0.25;
+}
+
+.loaded {
+  opacity: 1.0;
+}
+
+.loader-container {
+  width: 100%;
+  height: 4px;
+  background: #F3F4F5;
+}
+
+.loader {
+  width: 100%;
+  height: 4px;
+  background: #F3F4F5;
+  display: block;
+  position: relative;
+  overflow: hidden;
+}
+
+.loader::after {
+  content: '';  
+  width: 96px;
+  height: 4px;
+  background: #0D66E4;
+  position: absolute;
+  top: 0;
+  left: 0;
+  box-sizing: border-box;
+  animation: hitZak 0.6s ease-in-out infinite alternate;
+}
+
+@keyframes hitZak {
+  0% {
+    left: 0;
+    transform: translateX(-1%);
+  }
+  100% {
+    left: 100%;
+    transform: translateX(-99%);
+  }
+}
+
+label {
+  display: block;
+  margin-bottom: 8px;
+}
+
+input {
+  width: 100%;
+  padding: 8px;
+  margin-bottom: 16px;
+  box-sizing: border-box;
+  border: 2px solid #E1E3E7;
+  outline: none;
+  border-radius: 4px;
+  display: block;
+}
+
+input:focus {
+  border: 2px solid #0D66E4;
+}
+
+.form {
+  margin-left: 16px;
+  margin-right: 16px;
+  margin-bottom: 16px;
+}
+
+.visible {
+  display: block;
+}
+
+.invisible {
+  display: none;
+}
