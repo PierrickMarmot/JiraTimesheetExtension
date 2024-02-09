@@ -127,34 +127,33 @@ async function savePresence(date, presence) {
     const monthKey = `${date.getUTCFullYear()}-${date.getUTCMonth()}`;
     const dayKey = `${date.getDate()}`;
 
-    var month = presences.find((element) => element.key == monthKey);
+    const monthObjectExists = presences.find((monthObject) => monthObject.key == monthKey);
 
-    if (month !== undefined) {
-      presences.map((element) => {
-        if (element.key == monthKey) {
-          var day = element.presences.find((element) => element.key == dayKey);
+    if (monthObjectExists !== undefined) {
+      presences.map((monthObject) => {
+        if (monthObject.key == monthKey) {
+          const dayObjectExists = monthObject.presences.find((dayPresence) => dayPresence.key == dayKey);
 
-          if (day !== undefined) {
-
-            element.presences.map((element) => {
-              if (element.key == dayKey) {
-                element.presence = presence;
-                return element;
+          if (dayObjectExists !== undefined) {
+            monthObject.presences.map((dayObject) => {
+              if (dayObject.key == dayKey) {
+                dayObject.presence = presence;
+                return dayObject;
               } else {
-                return element;
+                return dayObject;
               }
             })
 
           } else {
-            element.presences.push({
+            monthObject.presences.push({
               key: dayKey,
               presence: presence
             });
           }
 
-          return element;
+          return monthObject;
         } else {
-          return element;
+          return monthObject;
         }
       })
     } else {
@@ -426,11 +425,11 @@ function showTimesheet(baseURL, workingTimePerDay, date, data, presences, canOpe
                 return ""
               }
 
-              return "<th>Écoulé</th>"
+              return "<th>Total écoulé</th>"
             }).join("")
             +
             `
-            <th>Total</th>
+            <th>Total mois</th>
           </tr>
           <tr>
             <th>Présence</th>
@@ -673,7 +672,7 @@ function showTimesheet(baseURL, workingTimePerDay, date, data, presences, canOpe
             `
           </tr>
           <tr>
-            <th>Completion</th>
+            <th>Complétion</th>
             `
             +
             [...Array(numberOfDaysInMonth(date)).keys()].map((day) => {
