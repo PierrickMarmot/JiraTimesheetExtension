@@ -2,7 +2,7 @@
 
 ![logo](./logo.png)
 
-### Generate your month timesheet with the number of hours worked.
+### Generate your Jira month timesheet.
 
 ![demo](./demo.png)
 
@@ -10,20 +10,20 @@
 
 ### Install on Safari
 
-- Download the `Safari JiraTimesheet.zip` from the latest release
+- Download the `SafariJiraTimesheetExtension.zip` from the latest release
 - Extract and move the extracted folder where you want to store the extension, for exemple **Documents**
 - Open your browser
 - Go to the **Settings** > **Advanced** 
 - Select the **Show features for web developers** check box
 - Go to the **Developer** > **Developer Settings** 
 - Select the **Allow unsigned extensions** check box
-- Open the extrated folder and **CONTROL + Right Click** > **Open** on the `JiraTimesheet.app`
+- Open the extrated folder and **CONTROL + Right Click** > **Open** on the `JiraTimesheetExtension.app`
 - Go to the extension page of your browser and enable the extension
 - The extension should be added to your browser
 
 ### Install on Firefox
 
-- Download the `FirefoxJiraTimesheet.zip` from the latest release
+- Download the `FirefoxJiraTimesheetExtension.zip` from the latest release
 - Extract and move the extracted folder where you want to store the extension, for exemple **Documents**
 - Open your browser
 - Go to the extension page
@@ -34,7 +34,7 @@
 
 ### Install on Chromium
 
-- Download the `ChromeJiraTimesheet.zip` from the latest release.
+- Download the `ChromeJiraTimesheetExtension.zip` from the latest release.
 - Extract and move the extracted folder where you want to store the extension, for exemple **Documents**
 - Open your browser
 - Go to the extension page
