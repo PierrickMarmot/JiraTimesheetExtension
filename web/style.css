@@ -46,6 +46,63 @@ html, body {
   background-color: #E1E3E7;
 }
 
+.green-button {
+  background-color: #DFFCF0;
+  border: none;
+  border-radius: 4px;
+  color: #216E4E;
+  padding: 8px 8px;
+  text-align: center;
+  vertical-align: middle;
+  text-decoration: none;
+  display: inline-block;
+  font-size: 16px;
+  margin: 0px;
+  cursor: pointer;
+}
+
+.green-button:hover {
+  background-color: #c9fae6;
+}
+
+.yellow-button {
+  background-color: #FFF7D6;
+  border: none;
+  border-radius: 4px;
+  color: #974F0C;
+  padding: 8px 8px;
+  text-align: center;
+  vertical-align: middle;
+  text-decoration: none;
+  display: inline-block;
+  font-size: 16px;
+  margin: 0px;
+  cursor: pointer;
+}
+
+.yellow-button:hover {
+  background-color: #fff2bf;
+}
+
+.red-button {
+  background-color: #FFD5D2;
+  border: none;
+  border-radius: 4px;
+  color: #AE2E23;
+  padding: 8px 8px;
+  text-align: center;
+  vertical-align: middle;
+  text-decoration: none;
+  display: inline-block;
+  font-size: 16px;
+  margin: 0px;
+  cursor: pointer;
+}
+
+.red-button:hover {
+  background-color: #ffbfbb;
+}
+
 .material-symbols-outlined {
   vertical-align: middle;
 }
@@ -113,6 +170,7 @@ table {
 
 .loading {
   opacity: 0.25;
+  pointer-events: none;
 }
 
 .loaded {

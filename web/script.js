@@ -6,6 +6,11 @@ if (this.hasOwnProperty('browser')) {
   webBrowser = chrome;
 }
 
+const Presence = {
+  full: 1,
+  half: 0.5,
+  off: 0
+};
 const View = {
   timesheet: "timesheet",
   settings: "settings"
@@ -16,12 +21,15 @@ var currentState = {
   timesheet: {
     canOpenInTab: false,
     selectedDate: new Date(),
+    scrollOffset: null,
+    presences: [],
     data: []
   },
   settings: {
     apiToken: null,
     baseURL: null,
-    emailAddress: null
+    emailAddress: null,
+    workingTimePerDay: null
   }
 };
 var previousState = { };
@@ -54,6 +62,126 @@ function isToday(date, day) {
   return date.getUTCFullYear() == currentDate.getUTCFullYear() && date.getUTCMonth() == currentDate.getUTCMonth() && day == currentDate.getDate();
 };
 
+function isCurrentMonth(date) {
+  const currentDate = new Date();
+
+  return date.getUTCFullYear() == currentDate.getUTCFullYear() && date.getUTCMonth() == currentDate.getUTCMonth();
+};
+
+async function loadPresences(date) {
+  try {
+    const result = await webBrowser.storage.local.get(["presences"])
+
+    const monthKey = `${date.getUTCFullYear()}-${date.getUTCMonth()}`;
+
+    return result.presences.find((element) => element.key == monthKey).presences;
+  } catch (error) {
+
+    return null;
+  }
+};
+
+async function savePresence(date, presence) {
+  try {
+    // [
+    //   {
+    //     key: "2024-1",
+    //     presences: [
+    //       {
+    //         key: "1",
+    //         presence: 0.5
+    //       },
+    //       ...
+    //     ]
+    //   },
+    //   ...
+    // ]
+
+    const result = await webBrowser.storage.local.get(["presences"]);
+
+    var presences = result.presences ?? [];
+
+    const monthKey = `${date.getUTCFullYear()}-${date.getUTCMonth()}`;
+    const dayKey = `${date.getDate()}`;
+
+    var month = presences.find((element) => element.key == monthKey);
+
+    if (month !== undefined) {
+      presences.map((element) => {
+        if (element.key == monthKey) {
+          var day = element.presences.find((element) => element.key == dayKey);
+
+          if (day !== undefined) {
+
+            element.presences.map((element) => {
+              if (element.key == dayKey) {
+                element.presence = presence;
+                return element;
+              } else {
+                return element;
+              }
+            })
+
+          } else {
+            element.presences.push({
+              key: dayKey,
+              presence: presence
+            });
+          }
+
+          return element;
+        } else {
+          return element;
+        }
+      })
+    } else {
+      presences.push({
+        key: monthKey,
+        presences: [
+          {
+            key: dayKey,
+            presence: presence
+          }
+        ]
+      });
+    }
+    
+    console.log(presences);
+
+    await webBrowser.storage.local.set({
+      presences: presences
+    });
+
+    return true;
+  } catch (error) {
+    console.log(error);
+
+    return false;
+  }
+};
+
+async function applyNewPresence(date, presence, scrollOffset) {
+  currentState.isLoading = true;
+
+  updateUI();
+
+  await savePresence(date, presence);
+
+  // Load presences
+  let presences = await loadPresences(currentState.timesheet.selectedDate);
+
+  if (presences != null) {
+    currentState.timesheet.presences = presences;
+  } else {
+    currentState.timesheet.presences = [];
+  }
+
+  currentState.isLoading = false;
+  currentState.timesheet.scrollOffset = scrollOffset;
+
+  updateUI();
+};
+
 async function loadSettings() {
   try {
     const result = await webBrowser.storage.local.get(["settings"])
@@ -61,26 +189,37 @@ async function loadSettings() {
     return {
         apiToken: result.settings.apiToken,
         baseURL: result.settings.baseURL,
-        emailAddress: result.settings.emailAddress
-    }
+        emailAddress: result.settings.emailAddress,
+        workingTimePerDay: result.settings.workingTimePerDay
+    };
   } catch (error) {
-    return null
+    return null;
   }
 };
 
-async function saveSettings(apiToken, baseURL, emailAddress) {
+async function saveSettings(apiToken, baseURL, emailAddress, workingTimePerDay) {
+  const apiTokenIsValid = true;
+  const baseURLIsValid = true;
+  const emailAddressIsValid = true;
+  const workingTimePerDayIsValid = (typeof workingTimePerDay === 'number') && (workingTimePerDay >= 1) && (workingTimePerDay <= 24);
+
+  if (apiTokenIsValid == false || baseURLIsValid == false || emailAddressIsValid == false || workingTimePerDayIsValid == false) {
+    return false;
+  }
+
   try {
     await webBrowser.storage.local.set({
       settings: {
         apiToken: apiToken,
         baseURL: baseURL,
-        emailAddress: emailAddress
+        emailAddress: emailAddress,
+        workingTimePerDay: workingTimePerDay
       }
-    })
+    });
 
-    return true
+    return true;
   } catch (error) {
-    return false
+    return false;
   }
 };
 
@@ -146,11 +285,31 @@ async function reload() {
 
   updateUI();
 
+  // Load presences
+  let presences = await loadPresences(currentState.timesheet.selectedDate);
+
+  if (presences != null) {
+    currentState.timesheet.presences = presences;
+  } else {
+    currentState.timesheet.presences = [];
+  }
+
+  // Load settings
   let settings = await loadSettings();
 
   if (settings != null) {
     currentState.settings = settings;
+  } else {
+    currentState.settings = {
+      apiToken: null,
+      baseURL: null,
+      emailAddress: null,
+      workingTimePerDay: null
+    }
+  }
 
+  // Load data
+  if (currentState.settings != null) {
     let data = await loadData(
       currentState.settings.apiToken,
       currentState.settings.baseURL,
@@ -158,20 +317,36 @@ async function reload() {
       currentState.timesheet.selectedDate
     );
     currentState.timesheet.data = data;
+  } else {
+    currentState.timesheet.data = [];
   }
 
   currentState.isLoading = false;
 
   updateUI();
+
+
+
+  // await webBrowser.storage.local.set({
+  //   presences: null
+  // });
 };
 
-async function applyNewSettings(apiToken, baseURL, emailAddress) {
-  let result = await saveSettings(apiToken, baseURL, emailAddress);
+async function applyNewSettings(apiToken, baseURL, emailAddress, workingTimePerDay) {
+  currentState.isLoading = true;
+
+  updateUI();
+
+  let result = await saveSettings(apiToken, baseURL, emailAddress, workingTimePerDay);
 
   if (result) {
     currentState.view = View.timesheet;
 
     reload();
+  } else {
+    currentState.isLoading = false;
+
+    updateUI();
   }
 };
 
@@ -195,7 +370,9 @@ function stopLoading() {
   document.getElementById("content-container").classList.add("loaded");
 };
 
-function showTimesheet(baseURL, date, data, canOpenInTab) {
+function showTimesheet(baseURL, workingTimePerDay, date, data, presences, canOpenInTab) {
+  console.log(presences);
+
   const monthText = date.toLocaleDateString('fr-FR', { year: 'numeric', month: 'long' });
   const monthTitle = capitalizeFirstLetter(monthText);
 
@@ -211,11 +388,11 @@ function showTimesheet(baseURL, date, data, canOpenInTab) {
       <button class="secondary-button" id="settingsButton" style="float: right; margin-left: 8px;"><span class="material-symbols-outlined">settings</span></button>
       ${optionalOpenInTabButton}
     </h1>
-    <div class="timesheet">
+    <div class="timesheet" id="timesheet">
       <table>
         <thead>
           <tr>
-            <th>-</th>
+            <th>Jour</th>
             `
             +
             [...Array(numberOfDaysInMonth(date)).keys()].map((day) => {
@@ -227,7 +404,104 @@ function showTimesheet(baseURL, date, data, canOpenInTab) {
             }).join("")
             +
             `
+            `
+            +
+            [true].map((it) => { // HERE
+              const isCurrentMonthValue = isCurrentMonth(date);
+
+              if (isCurrentMonthValue == false) {
+                return ""
+              }
+
+              return "<th>Écoulé</th>"
+            }).join("")
+            +
+            `
             <th>Total</th>
+          </tr>
+          <tr>
+            <th>Présence</th>
+            `
+            +
+            [...Array(numberOfDaysInMonth(date)).keys()].map((day) => {
+              const isTodayValue = isToday(date, day + 1);
+              const isWorkDayValue = isWorkDay(date, day + 1);
+              const customClass = isTodayValue ? "thtoday" : (isWorkDayValue ? "" : "thoffday")
+
+              const dayKey = `${day + 1}`;
+              const dayObject = presences.find((element) => element.key == `${dayKey}`)
+
+              var presence = isWorkDayValue ? Presence.full : Presence.off;
+
+              if (dayObject !== undefined) {
+                presence = dayObject.presence;
+              }
+
+              const customButtonClass = (presence == Presence.full) ? "green-button" : ((presence == Presence.half) ? "yellow-button" : "red-button")
+
+              return `<th class="`+customClass+`"><button class="${customButtonClass} update-presence">${presence}</button></th>`
+            }).join("")
+            +
+            `
+            `
+            +
+            [true].map((it) => { // HERE
+              const isCurrentMonthValue = isCurrentMonth(date);
+
+              if (isCurrentMonthValue == false) {
+                return ""
+              }
+
+              const initialValue = 0;
+              const sumWithInitial = [...Array((new Date).getDate() - 1).keys()].reduce(
+                (accumulator, currentValue) => {
+                  const isWorkDayValue = isWorkDay(date, currentValue + 1);
+
+                  const dayKey = `${currentValue + 1}`;
+                  const dayObject = presences.find((element) => element.key == `${dayKey}`)
+
+                  var presence = isWorkDayValue ? Presence.full : Presence.off;
+
+                  if (dayObject !== undefined) {
+                    presence = dayObject.presence;
+                  }
+                  return accumulator + presence;
+                },
+                initialValue,
+              );
+
+              const value = sumWithInitial.toFixed(1) + "j"
+
+              return `<th>`+value+`</th>`
+            }).join("")
+            +
+            `
+            `
+            +
+            [true].map((it) => {
+              const initialValue = 0;
+              const sumWithInitial = [...Array(numberOfDaysInMonth(date)).keys()].reduce(
+                (accumulator, currentValue) => {
+                  const isWorkDayValue = isWorkDay(date, currentValue + 1);
+
+                  const dayKey = `${currentValue + 1}`;
+                  const dayObject = presences.find((element) => element.key == `${dayKey}`)
+
+                  var presence = isWorkDayValue ? Presence.full : Presence.off;
+
+                  if (dayObject !== undefined) {
+                    presence = dayObject.presence;
+                  }
+                  return accumulator + presence;
+                },
+                initialValue,
+              );
+
+              const value = sumWithInitial.toFixed(1) + "j"
+              return `<th>`+value+`</th>`
+            }).join("")
+            +
+            `
           </tr>
         </thead>
         <tbody>
@@ -258,6 +532,34 @@ function showTimesheet(baseURL, date, data, canOpenInTab) {
 
               const value = sumWithInitial > 0 ? (sumWithInitial/3600).toFixed(1) + "h" : "-"
               return `<td class="`+customClass+`">`+value+`</td>`
+            }).join("")
+            +
+            `
+            `
+            +
+            [true].map((it) => { // HERE
+              const isCurrentMonthValue = isCurrentMonth(date);
+
+              if (isCurrentMonthValue == false) {
+                return ""
+              }
+
+              const currentDay = (new Date()).getDate();
+
+              const initialValue = 0;
+              const sumWithInitial = x.worklogs.reduce(
+                (accumulator, currentValue) => {
+                  if (currentValue.started.getDate() <= (currentDay - 1)) {
+                    return accumulator + currentValue.timeSpentSeconds;
+                  } else {
+                    return accumulator;
+                  }
+                },
+                initialValue,
+              );
+
+              const value = sumWithInitial > 0 ? (sumWithInitial/3600).toFixed(1) + "h" : "-"
+              return `<th>`+value+`</th>`
             }).join("")
             +
             `
@@ -320,6 +622,42 @@ function showTimesheet(baseURL, date, data, canOpenInTab) {
             `
             `
             +
+            [true].map((it) => { // HERE
+              const isCurrentMonthValue = isCurrentMonth(date);
+
+              if (isCurrentMonthValue == false) {
+                return ""
+              }
+
+              const currentDay = (new Date()).getDate();
+
+              const initialValue = 0;
+              const sumWithInitial = data.reduce(
+                (accumulator, currentValue) => {
+                  const initialValue2 = 0;
+                  const sumWithInitial2 = currentValue.worklogs.reduce(
+                    (accumulator2, currentValue2) => {
+                      if (currentValue2.started.getDate() <= (currentDay - 1)) {
+                        return accumulator2 + currentValue2.timeSpentSeconds;
+                      } else {
+                        return accumulator2;
+                      }
+                    },
+                    initialValue2,
+                  );
+                  
+                  return accumulator + sumWithInitial2
+                },
+                initialValue,
+              );
+
+              const value = sumWithInitial > 0 ? (sumWithInitial/3600).toFixed(1) + "h" : "-"
+              return `<th>`+value+`</th>`
+            }).join("")
+            +
+            `
+            `
+            +
             [true].map((it) => {
               const initialValue = 0;
               const sumWithInitial = data.reduce(
@@ -339,6 +677,187 @@ function showTimesheet(baseURL, date, data, canOpenInTab) {
 
               const value = sumWithInitial > 0 ? (sumWithInitial/3600).toFixed(1) + "h" : "-"
               return `<th>`+value+`</th>`
+            }).join("")
+            +
+            `
+          </tr>
+          <tr>
+            <th>Completion</th>
+            `
+            +
+            [...Array(numberOfDaysInMonth(date)).keys()].map((day) => {
+              const isTodayValue = isToday(date, day + 1);
+              const isWorkDayValue = isWorkDay(date, day + 1);
+              const customClass = isTodayValue ? "thtoday" : (isWorkDayValue ? "" : "thoffday")
+
+              const initialValue = 0;
+              const sumWithInitial = data.reduce(
+                (accumulator, currentValue) => {
+                  const initialValue2 = 0;
+                  const sumWithInitial2 = currentValue.worklogs.reduce(
+                    (accumulator2, currentValue2) => {
+                      if (currentValue2.started.getDate() == (day + 1)) {
+                        return accumulator2 + currentValue2.timeSpentSeconds
+                      } else {
+                        return accumulator2
+                      }
+                    },
+                    initialValue2,
+                  );
+                  
+                  return accumulator + sumWithInitial2
+                },
+                initialValue,
+              );              
+
+              const totalHours = (sumWithInitial/3600);
+
+
+              const dayKey = `${day + 1}`;
+              const dayObject = presences.find((element) => element.key == `${dayKey}`)
+
+              var presence = isWorkDayValue ? Presence.full : Presence.off;
+
+              if (dayObject !== undefined) {
+                 presence = dayObject.presence;
+              }
+
+
+              const goal = workingTimePerDay * presence;
+
+              if (goal != 0) {
+                const percent = (totalHours * 100) / goal;
+
+                const value = percent.toFixed(1) + "%"
+
+                return `<th class="`+customClass+`">`+value+`</th>`
+              } else {
+                return `<th class="`+customClass+`">-</th>`
+              }
+            }).join("")
+            +
+            `
+            `
+            +
+            [true].map((it) => { // HERE
+              const isCurrentMonthValue = isCurrentMonth(date);
+
+              if (isCurrentMonthValue == false) {
+                return ""
+              }
+
+              const currentDay = (new Date()).getDate();
+
+              // Hours
+              const totalInitialValue = 0;
+              const totalSumWithInitial = data.reduce(
+                (accumulator, currentValue) => {
+                  const initialValue2 = 0;
+                  const sumWithInitial2 = currentValue.worklogs.reduce(
+                    (accumulator2, currentValue2) => {
+                      if (currentValue2.started.getDate() <= (currentDay - 1)) {
+                        return accumulator2 + currentValue2.timeSpentSeconds;
+                      } else {
+                        return accumulator2;
+                      }
+                    },
+                    initialValue2,
+                  );
+                  
+                  return accumulator + sumWithInitial2
+                },
+                totalInitialValue,
+              );
+
+              const totalHours = (totalSumWithInitial/3600);
+
+
+              // Days
+              const daysInitialValue = 0;
+              const daysSumWithInitial = [...Array((new Date).getDate() - 1).keys()].reduce(
+                (accumulator, currentValue) => {
+                  const isWorkDayValue = isWorkDay(date, currentValue + 1);
+
+                  const dayKey = `${currentValue + 1}`;
+                  const dayObject = presences.find((element) => element.key == `${dayKey}`)
+
+                  var presence = isWorkDayValue ? Presence.full : Presence.off;
+
+                  if (dayObject !== undefined) {
+                    presence = dayObject.presence;
+                  }
+                  return accumulator + presence;
+                },
+                daysInitialValue,
+              );
+
+              const goal = daysSumWithInitial * workingTimePerDay;
+
+              if (goal != 0) {
+                const percent = (totalHours * 100) / goal;
+
+                const value = percent.toFixed(1) + "%"
+
+                return `<th>${value}</th>`
+              } else {
+                return `<th>-</th>`
+              }
+            }).join("")
+            +
+            `
+            `
+            +
+            [true].map((it) => {
+              // Hours
+              const totalInitialValue = 0;
+              const totalSumWithInitial = data.reduce(
+                (accumulator, currentValue) => {
+                  const initialValue2 = 0;
+                  const sumWithInitial2 = currentValue.worklogs.reduce(
+                    (accumulator2, currentValue2) => {
+                      return accumulator2 + currentValue2.timeSpentSeconds
+                    },
+                    initialValue2,
+                  );
+                  
+                  return accumulator + sumWithInitial2
+                },
+                totalInitialValue,
+              );
+
+              const totalHours = (totalSumWithInitial/3600);
+
+
+              // Days
+              const daysInitialValue = 0;
+              const daysSumWithInitial = [...Array(numberOfDaysInMonth(date)).keys()].reduce(
+                (accumulator, currentValue) => {
+                  const isWorkDayValue = isWorkDay(date, currentValue + 1);
+
+                  const dayKey = `${currentValue + 1}`;
+                  const dayObject = presences.find((element) => element.key == `${dayKey}`)
+
+                  var presence = isWorkDayValue ? Presence.full : Presence.off;
+
+                  if (dayObject !== undefined) {
+                    presence = dayObject.presence;
+                  }
+                  return accumulator + presence;
+                },
+                daysInitialValue,
+              );
+
+              const goal = daysSumWithInitial * workingTimePerDay;
+
+              if (goal != 0) {
+                const percent = (totalHours * 100) / goal;
+
+                const value = percent.toFixed(1) + "%"
+
+                return `<th>${value}</th>`
+              } else {
+                return `<th>-</th>`
+              }
             }).join("")
             +
             `
@@ -381,9 +900,40 @@ function showTimesheet(baseURL, date, data, canOpenInTab) {
       webBrowser.tabs.create({ url: webBrowser.runtime.getURL("index.html?mode=tab") });
     });
   }
+
+  Array.from(document.getElementsByClassName("update-presence")).forEach(function(element, i) {
+    const day = i + 1;
+
+    element.addEventListener("click", function() {
+      var presenceDate = date;
+      presenceDate.setDate(day);
+
+      const scrollOffset = document.getElementById("timesheet").scrollLeft;
+
+      const dayKey = `${day}`;
+      const dayObject = presences.find((element) => element.key == `${dayKey}`)
+
+      var presence = Presence.full;
+
+      if (dayObject !== undefined) {
+        presence = dayObject.presence;
+      }
+
+      var newPresence = Presence.full;
+
+      if (presence == Presence.full) {
+        newPresence = Presence.half;
+      } else if (presence == Presence.half) {
+        newPresence = Presence.off;
+      }
+
+      applyNewPresence(presenceDate, newPresence, scrollOffset);
+    });
+  });
+
 };
 
-function showSettings(apiToken, baseURL, emailAddress) {
+function showSettings(apiToken, baseURL, emailAddress, workingTimePerDay) {
   document.getElementById("content-container").innerHTML = `
     <h1>
       <button class="secondary-button" id="backButton"><span class="material-symbols-outlined">arrow_back</span></button>
@@ -392,11 +942,13 @@ function showSettings(apiToken, baseURL, emailAddress) {
     </h1>
     <div class="form">
       <label for="baseURL">URL Jira (Exemple: https://DOMAIN.atlassian.net)</label>
-      <input type="url" id="baseURLInput" name="baseURL" value="${baseURL}" required minlength="1" />
+      <input type="url" id="baseURLInput" name="baseURL" value="${baseURL}" />
       <label for="emailAddress">Adresse mail Jira</label>
-      <input type="email" id="emailAddressInput" name="emailAddress" value="${emailAddress}" required minlength="1"/>
+      <input type="email" id="emailAddressInput" name="emailAddress" value="${emailAddress}" />
       <label for="apiToken">API token Jira (Optionnel si connecté sur Jira avec Cookie)</label>
-      <input type="text" id="apiTokenInput" name="apiToken" value="${apiToken}" required minlength="1" />
+      <input type="text" id="apiTokenInput" name="apiToken" value="${apiToken}" />
+      <label for="workingTimePerDay">Temps de travail par jour en heure</label>
+      <input type="number" id="workingTimePerDayInput" name="workingTimePerDay" value="${workingTimePerDay}" />
     </div>
   `;
 
@@ -410,8 +962,9 @@ function showSettings(apiToken, baseURL, emailAddress) {
     const apiToken = document.getElementById("apiTokenInput").value
     const baseURL = document.getElementById("baseURLInput").value
     const emailAddress = document.getElementById("emailAddressInput").value
+    const workingTimePerDay = Number(document.getElementById("workingTimePerDayInput").value)
 
-    applyNewSettings(apiToken, baseURL, emailAddress);
+    applyNewSettings(apiToken, baseURL, emailAddress, workingTimePerDay);
   });
 };
 
@@ -425,16 +978,27 @@ function updateUI() {
   if (currentState.view == View.timesheet) {
     showTimesheet(
       currentState.settings.baseURL,
+      currentState.settings.workingTimePerDay,
       currentState.timesheet.selectedDate,
       currentState.timesheet.data,
+      currentState.timesheet.presences,
       currentState.timesheet.canOpenInTab
     );
   } else if (currentState.view == View.settings) {
     showSettings(
       currentState.settings.apiToken ?? "",
       currentState.settings.baseURL ?? "",
-      currentState.settings.emailAddress ?? ""
+      currentState.settings.emailAddress ?? "",
+      currentState.settings.workingTimePerDay ?? 7
     );
+  }
+
+  if (currentState.timesheet.scrollOffset != null) {
+    document.getElementById("timesheet").scrollTo({
+      left: currentState.timesheet.scrollOffset,
+      behavior: "instant"
+    });
+    currentState.timesheet.scrollOffset = null;
   }
 };
 
