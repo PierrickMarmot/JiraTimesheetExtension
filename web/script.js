@@ -68,6 +68,29 @@ function isCurrentMonth(date) {
   return date.getUTCFullYear() == currentDate.getUTCFullYear() && date.getUTCMonth() == currentDate.getUTCMonth();
 };
 
+function dayPresence(monthPresences, date, day) {
+  const isWorkDayValue = isWorkDay(date, day);
+
+  const dayPresenceKey = `${day}`;
+  const dayPresenceObject = monthPresences.find((dayPresence) => dayPresence.key == `${dayPresenceKey}`)
+
+  if (dayPresenceObject !== undefined) {
+    return dayPresenceObject.presence;
+  } else {
+    return isWorkDayValue ? Presence.full : Presence.off;
+  }
+};
+
+function toggledDayPresence(dayPresence) {
+  if (dayPresence == Presence.full) {
+    return Presence.half
+  } else if (dayPresence == Presence.half) {
+    return Presence.off
+  } else {
+    return Presence.full
+  }
+};
+
 async function loadPresences(date) {
   try {
     const result = await webBrowser.storage.local.get(["presences"])
@@ -146,16 +169,12 @@ async function savePresence(date, presence) {
       });
     }
     
-    console.log(presences);
-
     await webBrowser.storage.local.set({
       presences: presences
     });
 
     return true;
   } catch (error) {
-    console.log(error);
-
     return false;
   }
 };
@@ -324,12 +343,6 @@ async function reload() {
   currentState.isLoading = false;
 
   updateUI();
-
-
-
-  // await webBrowser.storage.local.set({
-  //   presences: null
-  // });
 };
 
 async function applyNewSettings(apiToken, baseURL, emailAddress, workingTimePerDay) {
@@ -396,17 +409,17 @@ function showTimesheet(baseURL, workingTimePerDay, date, data, presences, canOpe
             `
             +
             [...Array(numberOfDaysInMonth(date)).keys()].map((day) => {
-              const isTodayValue = isToday(date, day + 1);
-              const isWorkDayValue = isWorkDay(date, day + 1);
+              const iterationDay = day + 1;
+              const isTodayValue = isToday(date, iterationDay);
+              const isWorkDayValue = isWorkDay(date, iterationDay);
               const customClass = isTodayValue ? "thtoday" : (isWorkDayValue ? "" : "thoffday")
-
-              return `<th class="`+customClass+`">`+(day + 1)+`</th>`
+              return `<th class="`+customClass+`">`+iterationDay+`</th>`
             }).join("")
             +
             `
             `
             +
-            [true].map((it) => { // HERE
+            [true].map((it) => {
               const isCurrentMonthValue = isCurrentMonth(date);
 
               if (isCurrentMonthValue == false) {
@@ -424,19 +437,11 @@ function showTimesheet(baseURL, workingTimePerDay, date, data, presences, canOpe
             `
             +
             [...Array(numberOfDaysInMonth(date)).keys()].map((day) => {
-              const isTodayValue = isToday(date, day + 1);
-              const isWorkDayValue = isWorkDay(date, day + 1);
-              const customClass = isTodayValue ? "thtoday" : (isWorkDayValue ? "" : "thoffday")
-
-              const dayKey = `${day + 1}`;
-              const dayObject = presences.find((element) => element.key == `${dayKey}`)
-
-              var presence = isWorkDayValue ? Presence.full : Presence.off;
-
-              if (dayObject !== undefined) {
-                presence = dayObject.presence;
-              }
-
+              const iterationDay = day + 1;
+              const isTodayValue = isToday(date, iterationDay);
+              const isWorkDayValue = isWorkDay(date, iterationDay);
+              const customClass = isTodayValue ? "thtoday" : (isWorkDayValue ? "" : "thoffday");
+              const presence = dayPresence(presences, date, iterationDay);
               const customButtonClass = (presence == Presence.full) ? "green-button" : ((presence == Presence.half) ? "yellow-button" : "red-button")
 
               return `<th class="`+customClass+`"><button class="${customButtonClass} update-presence">${presence}</button></th>`
@@ -445,60 +450,47 @@ function showTimesheet(baseURL, workingTimePerDay, date, data, presences, canOpe
             `
             `
             +
-            [true].map((it) => { // HERE
+            [true].map((it) => {
               const isCurrentMonthValue = isCurrentMonth(date);
 
               if (isCurrentMonthValue == false) {
                 return ""
               }
 
-              const initialValue = 0;
-              const sumWithInitial = [...Array((new Date).getDate() - 1).keys()].reduce(
+              const totalDays = [...Array((new Date).getDate() - 1).keys()].reduce(
                 (accumulator, currentValue) => {
-                  const isWorkDayValue = isWorkDay(date, currentValue + 1);
+                  const iterationDay = currentValue + 1;
+                  const isWorkDayValue = isWorkDay(date, iterationDay);
+                  const presence = dayPresence(presences, date, iterationDay);
 
-                  const dayKey = `${currentValue + 1}`;
-                  const dayObject = presences.find((element) => element.key == `${dayKey}`)
-
-                  var presence = isWorkDayValue ? Presence.full : Presence.off;
-
-                  if (dayObject !== undefined) {
-                    presence = dayObject.presence;
-                  }
                   return accumulator + presence;
                 },
-                initialValue,
+                0,
               );
 
-              const value = sumWithInitial.toFixed(1) + "j"
+              const value = totalDays.toFixed(1) + "j"
 
-              return `<th>`+value+`</th>`
+              return `<th>${value}</th>`
             }).join("")
             +
             `
             `
             +
             [true].map((it) => {
-              const initialValue = 0;
-              const sumWithInitial = [...Array(numberOfDaysInMonth(date)).keys()].reduce(
+              const totalDays = [...Array(numberOfDaysInMonth(date)).keys()].reduce(
                 (accumulator, currentValue) => {
-                  const isWorkDayValue = isWorkDay(date, currentValue + 1);
+                  const iterationDay = currentValue + 1;
+                  const isWorkDayValue = isWorkDay(date, iterationDay);
+                  const presence = dayPresence(presences, date, iterationDay);
 
-                  const dayKey = `${currentValue + 1}`;
-                  const dayObject = presences.find((element) => element.key == `${dayKey}`)
-
-                  var presence = isWorkDayValue ? Presence.full : Presence.off;
-
-                  if (dayObject !== undefined) {
-                    presence = dayObject.presence;
-                  }
                   return accumulator + presence;
                 },
-                initialValue,
+                0,
               );
 
-              const value = sumWithInitial.toFixed(1) + "j"
-              return `<th>`+value+`</th>`
+              const value = totalDays.toFixed(1) + "j"
+
+              return `<th>${value}</th>`
             }).join("")
             +
             `
@@ -514,30 +506,31 @@ function showTimesheet(baseURL, workingTimePerDay, date, data, presences, canOpe
             `
             +
             [...Array(numberOfDaysInMonth(date)).keys()].map((day) => {
-              const isTodayValue = isToday(date, day + 1);
-              const isWorkDayValue = isWorkDay(date, day + 1);
+              const iterationDay = day + 1;
+              const isTodayValue = isToday(date, iterationDay);
+              const isWorkDayValue = isWorkDay(date, iterationDay);
               const customClass = isTodayValue ? "tdtoday" : (isWorkDayValue ? "" : "tdoffday")
 
-              const initialValue = 0;
-              const sumWithInitial = x.worklogs.reduce(
+              const totalTimeSpentSeconds = x.worklogs.reduce(
                 (accumulator, currentValue) => {
-                  if (currentValue.started.getDate() == (day + 1)) {
+                  if (currentValue.started.getDate() == iterationDay) {
                     return accumulator + currentValue.timeSpentSeconds
                   } else {
                     return accumulator
                   }
                 },
-                initialValue,
+                0,
               );
 
-              const value = sumWithInitial > 0 ? (sumWithInitial/3600).toFixed(1) + "h" : "-"
-              return `<td class="`+customClass+`">`+value+`</td>`
+              const value = (totalTimeSpentSeconds > 0) ? (totalTimeSpentSeconds / 3600).toFixed(1) + "h" : "-"
+
+              return `<td class="${customClass}">${value}</td>`
             }).join("")
             +
             `
             `
             +
-            [true].map((it) => { // HERE
+            [true].map((it) => {
               const isCurrentMonthValue = isCurrentMonth(date);
 
               if (isCurrentMonthValue == false) {
@@ -546,8 +539,7 @@ function showTimesheet(baseURL, workingTimePerDay, date, data, presences, canOpe
 
               const currentDay = (new Date()).getDate();
 
-              const initialValue = 0;
-              const sumWithInitial = x.worklogs.reduce(
+              const totalTimeSpentSeconds = x.worklogs.reduce(
                 (accumulator, currentValue) => {
                   if (currentValue.started.getDate() <= (currentDay - 1)) {
                     return accumulator + currentValue.timeSpentSeconds;
@@ -555,27 +547,28 @@ function showTimesheet(baseURL, workingTimePerDay, date, data, presences, canOpe
                     return accumulator;
                   }
                 },
-                initialValue,
+                0,
               );
 
-              const value = sumWithInitial > 0 ? (sumWithInitial/3600).toFixed(1) + "h" : "-"
-              return `<th>`+value+`</th>`
+              const value = (totalTimeSpentSeconds > 0) ? (totalTimeSpentSeconds / 3600).toFixed(1) + "h" : "-"
+              
+              return `<th>${value}</th>`
             }).join("")
             +
             `
             `
             +
             [true].map((it) => {
-              const initialValue = 0;
-              const sumWithInitial = x.worklogs.reduce(
+              const totalTimeSpentSeconds = x.worklogs.reduce(
                 (accumulator, currentValue) => {
                   return accumulator + currentValue.timeSpentSeconds
                 },
-                initialValue,
+                0,
               );
 
-              const value = sumWithInitial > 0 ? (sumWithInitial/3600).toFixed(1) + "h" : "-"
-              return `<th>`+value+`</th>`
+              const value = (totalTimeSpentSeconds > 0) ? (totalTimeSpentSeconds / 3600).toFixed(1) + "h" : "-"
+              
+              return `<th>${value}</th>`
             }).join("")
             +
             `
@@ -591,38 +584,38 @@ function showTimesheet(baseURL, workingTimePerDay, date, data, presences, canOpe
             `
             +
             [...Array(numberOfDaysInMonth(date)).keys()].map((day) => {
-              const isTodayValue = isToday(date, day + 1);
-              const isWorkDayValue = isWorkDay(date, day + 1);
+              const iterationDay = day + 1;
+              const isTodayValue = isToday(date, iterationDay);
+              const isWorkDayValue = isWorkDay(date, iterationDay);
               const customClass = isTodayValue ? "thtoday" : (isWorkDayValue ? "" : "thoffday")
 
-              const initialValue = 0;
-              const sumWithInitial = data.reduce(
-                (accumulator, currentValue) => {
-                  const initialValue2 = 0;
-                  const sumWithInitial2 = currentValue.worklogs.reduce(
-                    (accumulator2, currentValue2) => {
-                      if (currentValue2.started.getDate() == (day + 1)) {
-                        return accumulator2 + currentValue2.timeSpentSeconds
+              const totalTimeSpentSeconds = data.reduce(
+                (firstAccumulator, firstCurrentValue) => {
+                  const issueTotalTimeSpentSeconds = firstCurrentValue.worklogs.reduce(
+                    (secondAccumulator, secondCurrentValue) => {
+                      if (secondCurrentValue.started.getDate() == (day + 1)) {
+                        return secondAccumulator + secondCurrentValue.timeSpentSeconds
                       } else {
-                        return accumulator2
+                        return secondAccumulator
                       }
                     },
-                    initialValue2,
+                    0,
                   );
                   
-                  return accumulator + sumWithInitial2
+                  return firstAccumulator + issueTotalTimeSpentSeconds
                 },
-                initialValue,
+                0,
               );
 
-              const value = sumWithInitial > 0 ? (sumWithInitial/3600).toFixed(1) + "h" : "-"
-              return `<th class="`+customClass+`">`+value+`</th>`
+              const value = (totalTimeSpentSeconds > 0) ? (totalTimeSpentSeconds / 3600).toFixed(1) + "h" : "-"
+              
+              return `<th class="${customClass}">${value}</th>`
             }).join("")
             +
             `
             `
             +
-            [true].map((it) => { // HERE
+            [true].map((it) => {
               const isCurrentMonthValue = isCurrentMonth(date);
 
               if (isCurrentMonthValue == false) {
@@ -631,52 +624,50 @@ function showTimesheet(baseURL, workingTimePerDay, date, data, presences, canOpe
 
               const currentDay = (new Date()).getDate();
 
-              const initialValue = 0;
-              const sumWithInitial = data.reduce(
-                (accumulator, currentValue) => {
-                  const initialValue2 = 0;
-                  const sumWithInitial2 = currentValue.worklogs.reduce(
-                    (accumulator2, currentValue2) => {
-                      if (currentValue2.started.getDate() <= (currentDay - 1)) {
-                        return accumulator2 + currentValue2.timeSpentSeconds;
+              const totalTimeSpentSeconds = data.reduce(
+                (firstAccumulator, firstCurrentValue) => {
+                  const issueTotalTimeSpentSeconds = firstCurrentValue.worklogs.reduce(
+                    (secondAccumulator, secondCurrentValue) => {
+                      if (secondCurrentValue.started.getDate() <= (currentDay - 1)) {
+                        return secondAccumulator + secondCurrentValue.timeSpentSeconds;
                       } else {
-                        return accumulator2;
+                        return secondAccumulator;
                       }
                     },
-                    initialValue2,
+                    0,
                   );
                   
-                  return accumulator + sumWithInitial2
+                  return firstAccumulator + issueTotalTimeSpentSeconds
                 },
-                initialValue,
+                0,
               );
 
-              const value = sumWithInitial > 0 ? (sumWithInitial/3600).toFixed(1) + "h" : "-"
-              return `<th>`+value+`</th>`
+              const value = (totalTimeSpentSeconds > 0) ? (totalTimeSpentSeconds / 3600).toFixed(1) + "h" : "-"
+              
+              return `<th>${value}</th>`
             }).join("")
             +
             `
             `
             +
             [true].map((it) => {
-              const initialValue = 0;
-              const sumWithInitial = data.reduce(
-                (accumulator, currentValue) => {
-                  const initialValue2 = 0;
-                  const sumWithInitial2 = currentValue.worklogs.reduce(
-                    (accumulator2, currentValue2) => {
-                      return accumulator2 + currentValue2.timeSpentSeconds
+              const totalTimeSpentSeconds = data.reduce(
+                (firstAccumulator, firstCurrentValue) => {
+                  const issueTotalTimeSpentSeconds = firstCurrentValue.worklogs.reduce(
+                    (secondAccumulator, secondCurrentValue) => {
+                      return secondAccumulator + secondCurrentValue.timeSpentSeconds
                     },
-                    initialValue2,
+                    0,
                   );
                   
-                  return accumulator + sumWithInitial2
+                  return firstAccumulator + issueTotalTimeSpentSeconds
                 },
-                initialValue,
+                0,
               );
 
-              const value = sumWithInitial > 0 ? (sumWithInitial/3600).toFixed(1) + "h" : "-"
-              return `<th>`+value+`</th>`
+              const value = (totalTimeSpentSeconds > 0) ? (totalTimeSpentSeconds / 3600).toFixed(1) + "h" : "-"
+              
+              return `<th>${value}</th>`
             }).join("")
             +
             `
@@ -686,60 +677,46 @@ function showTimesheet(baseURL, workingTimePerDay, date, data, presences, canOpe
             `
             +
             [...Array(numberOfDaysInMonth(date)).keys()].map((day) => {
-              const isTodayValue = isToday(date, day + 1);
-              const isWorkDayValue = isWorkDay(date, day + 1);
+              const iterationDay = day + 1;
+              const isTodayValue = isToday(date, iterationDay);
+              const isWorkDayValue = isWorkDay(date, iterationDay);
               const customClass = isTodayValue ? "thtoday" : (isWorkDayValue ? "" : "thoffday")
 
-              const initialValue = 0;
-              const sumWithInitial = data.reduce(
-                (accumulator, currentValue) => {
-                  const initialValue2 = 0;
-                  const sumWithInitial2 = currentValue.worklogs.reduce(
-                    (accumulator2, currentValue2) => {
-                      if (currentValue2.started.getDate() == (day + 1)) {
-                        return accumulator2 + currentValue2.timeSpentSeconds
+              const totalTimeSpentSeconds = data.reduce(
+                (fristAccumulator, firstCurrentValue) => {
+                  const issueTotalTimeSpentSeconds = firstCurrentValue.worklogs.reduce(
+                    (secondAccumulator, secondCurrentValue) => {
+                      if (secondCurrentValue.started.getDate() == iterationDay) {
+                        return secondAccumulator + secondCurrentValue.timeSpentSeconds
                       } else {
-                        return accumulator2
+                        return secondAccumulator
                       }
                     },
-                    initialValue2,
+                    0,
                   );
                   
-                  return accumulator + sumWithInitial2
+                  return fristAccumulator + issueTotalTimeSpentSeconds
                 },
-                initialValue,
-              );              
+                0,
+              );
+              const totalTimeSpentHours = (totalTimeSpentSeconds / 3600);
+              const presence = dayPresence(presences, date, iterationDay);
+              const goalHours = workingTimePerDay * presence;
 
-              const totalHours = (sumWithInitial/3600);
-
-
-              const dayKey = `${day + 1}`;
-              const dayObject = presences.find((element) => element.key == `${dayKey}`)
-
-              var presence = isWorkDayValue ? Presence.full : Presence.off;
-
-              if (dayObject !== undefined) {
-                 presence = dayObject.presence;
-              }
-
-
-              const goal = workingTimePerDay * presence;
-
-              if (goal != 0) {
-                const percent = (totalHours * 100) / goal;
-
+              if (goalHours != 0) {
+                const percent = (totalTimeSpentHours * 100) / goalHours;
                 const value = percent.toFixed(1) + "%"
 
-                return `<th class="`+customClass+`">`+value+`</th>`
+                return `<th class="${customClass}">${value}</th>`
               } else {
-                return `<th class="`+customClass+`">-</th>`
+                return `<th class="${customClass}">-</th>`
               }
             }).join("")
             +
             `
             `
             +
-            [true].map((it) => { // HERE
+            [true].map((it) => {
               const isCurrentMonthValue = isCurrentMonth(date);
 
               if (isCurrentMonthValue == false) {
@@ -748,53 +725,39 @@ function showTimesheet(baseURL, workingTimePerDay, date, data, presences, canOpe
 
               const currentDay = (new Date()).getDate();
 
-              // Hours
-              const totalInitialValue = 0;
-              const totalSumWithInitial = data.reduce(
-                (accumulator, currentValue) => {
-                  const initialValue2 = 0;
-                  const sumWithInitial2 = currentValue.worklogs.reduce(
-                    (accumulator2, currentValue2) => {
-                      if (currentValue2.started.getDate() <= (currentDay - 1)) {
-                        return accumulator2 + currentValue2.timeSpentSeconds;
+              const totalTimeSpentSeconds = data.reduce(
+                (firstAccumulator, firstCurrentValue) => {
+                  const issueTotalTimeSpentSeconds = firstCurrentValue.worklogs.reduce(
+                    (secondAccumulator, secondCurrentValue) => {
+                      if (secondCurrentValue.started.getDate() <= (currentDay - 1)) {
+                        return secondAccumulator + secondCurrentValue.timeSpentSeconds;
                       } else {
-                        return accumulator2;
+                        return secondAccumulator;
                       }
                     },
-                    initialValue2,
+                    0,
                   );
                   
-                  return accumulator + sumWithInitial2
+                  return firstAccumulator + issueTotalTimeSpentSeconds
                 },
-                totalInitialValue,
+                0,
               );
+              const totalTimeSpentHours = (totalTimeSpentSeconds / 3600);
 
-              const totalHours = (totalSumWithInitial/3600);
-
-
-              // Days
-              const daysInitialValue = 0;
-              const daysSumWithInitial = [...Array((new Date).getDate() - 1).keys()].reduce(
+              const totalDays = [...Array((new Date).getDate() - 1).keys()].reduce(
                 (accumulator, currentValue) => {
-                  const isWorkDayValue = isWorkDay(date, currentValue + 1);
+                  const iterationDay = currentValue + 1;
+                  const presence = dayPresence(presences, date, iterationDay);
 
-                  const dayKey = `${currentValue + 1}`;
-                  const dayObject = presences.find((element) => element.key == `${dayKey}`)
-
-                  var presence = isWorkDayValue ? Presence.full : Presence.off;
-
-                  if (dayObject !== undefined) {
-                    presence = dayObject.presence;
-                  }
                   return accumulator + presence;
                 },
-                daysInitialValue,
+                0,
               );
 
-              const goal = daysSumWithInitial * workingTimePerDay;
+              const goalHours = totalDays * workingTimePerDay;
 
-              if (goal != 0) {
-                const percent = (totalHours * 100) / goal;
+              if (goalHours != 0) {
+                const percent = (totalTimeSpentHours * 100) / goalHours;
 
                 const value = percent.toFixed(1) + "%"
 
@@ -808,49 +771,35 @@ function showTimesheet(baseURL, workingTimePerDay, date, data, presences, canOpe
             `
             +
             [true].map((it) => {
-              // Hours
-              const totalInitialValue = 0;
-              const totalSumWithInitial = data.reduce(
-                (accumulator, currentValue) => {
-                  const initialValue2 = 0;
-                  const sumWithInitial2 = currentValue.worklogs.reduce(
-                    (accumulator2, currentValue2) => {
-                      return accumulator2 + currentValue2.timeSpentSeconds
+              const totalTimeSpentSeconds = data.reduce(
+                (firstAccumulator, firstCurrentValue) => {
+                  const issueTotalTimeSpentSeconds = firstCurrentValue.worklogs.reduce(
+                    (secondAccumulator, secondCurrentValue) => {
+                      return secondAccumulator + secondCurrentValue.timeSpentSeconds;
                     },
-                    initialValue2,
+                    0,
                   );
                   
-                  return accumulator + sumWithInitial2
+                  return firstAccumulator + issueTotalTimeSpentSeconds
                 },
-                totalInitialValue,
+                0,
               );
+              const totalTimeSpentHours = (totalTimeSpentSeconds / 3600);
 
-              const totalHours = (totalSumWithInitial/3600);
-
-
-              // Days
-              const daysInitialValue = 0;
-              const daysSumWithInitial = [...Array(numberOfDaysInMonth(date)).keys()].reduce(
+              const totalDays = [...Array(numberOfDaysInMonth(date)).keys()].reduce(
                 (accumulator, currentValue) => {
-                  const isWorkDayValue = isWorkDay(date, currentValue + 1);
+                  const iterationDay = currentValue + 1;
+                  const presence = dayPresence(presences, date, iterationDay);
 
-                  const dayKey = `${currentValue + 1}`;
-                  const dayObject = presences.find((element) => element.key == `${dayKey}`)
-
-                  var presence = isWorkDayValue ? Presence.full : Presence.off;
-
-                  if (dayObject !== undefined) {
-                    presence = dayObject.presence;
-                  }
                   return accumulator + presence;
                 },
-                daysInitialValue,
+                0,
               );
 
-              const goal = daysSumWithInitial * workingTimePerDay;
+              const goalHours = totalDays * workingTimePerDay;
 
-              if (goal != 0) {
-                const percent = (totalHours * 100) / goal;
+              if (goalHours != 0) {
+                const percent = (totalTimeSpentHours * 100) / goalHours;
 
                 const value = percent.toFixed(1) + "%"
 
@@ -910,22 +859,8 @@ function showTimesheet(baseURL, workingTimePerDay, date, data, presences, canOpe
 
       const scrollOffset = document.getElementById("timesheet").scrollLeft;
 
-      const dayKey = `${day}`;
-      const dayObject = presences.find((element) => element.key == `${dayKey}`)
-
-      var presence = Presence.full;
-
-      if (dayObject !== undefined) {
-        presence = dayObject.presence;
-      }
-
-      var newPresence = Presence.full;
-
-      if (presence == Presence.full) {
-        newPresence = Presence.half;
-      } else if (presence == Presence.half) {
-        newPresence = Presence.off;
-      }
+      const presence = dayPresence(presences, date, day);
+      const newPresence = toggledDayPresence(presence);
 
       applyNewPresence(presenceDate, newPresence, scrollOffset);
     });
