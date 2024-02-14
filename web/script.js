@@ -253,7 +253,7 @@ async function loadData(apiToken, baseURL, emailAddress, date) {
     const filterEndDate = `${date.getUTCFullYear()}-${(date.getUTCMonth() + 1)}-${numberOfDaysInMonth(date)}`;
     const filterRequest = `worklogDate >= ${filterStartDate} AND worklogDate <= ${filterEndDate} AND worklogAuthor = currentUser() AND timeSpent > 0 order by created ASC`;
     const encodedFilterRequest = encodeURI(filterRequest);
-    const requestURL = `${baseURL}/rest/api/3/search?fields=worklog&maxResults=10000&jql=${encodedFilterRequest}`;
+    const requestURL = `${baseURL}/rest/api/3/search?fields=worklog,summary&maxResults=10000&jql=${encodedFilterRequest}`;
     const response = await fetch(requestURL, { method: "GET", headers: headers });
     const responseText = await response.text()
     const responseJSON = JSON.parse(responseText);
@@ -266,6 +266,7 @@ async function loadData(apiToken, baseURL, emailAddress, date) {
     return responseJSON.issues.map((issue) => {
       return {
         key: issue.key,
+        summary: issue.fields.summary,
         worklogs: issue.fields.worklog.worklogs.map((worklog) => {
           try {
             const startedDate = new Date(worklog.started);
@@ -281,7 +282,7 @@ async function loadData(apiToken, baseURL, emailAddress, date) {
           } catch (error) {
             return null;
           }
-        }).filter(Boolean)
+        }).filter(Boolean),
       }
     }).filter((object) => object.worklogs.length > 0);
   } catch (error) {
@@ -383,8 +384,6 @@ function stopLoading() {
 };
 
 function showTimesheet(baseURL, workingTimePerDay, date, data, presences, canOpenInTab) {
-  console.log(presences);
-
   const monthText = date.toLocaleDateString('fr-FR', { year: 'numeric', month: 'long' });
   const monthTitle = capitalizeFirstLetter(monthText);
 
@@ -501,7 +500,7 @@ function showTimesheet(baseURL, workingTimePerDay, date, data, presences, canOpe
           data.map((x) => {
           return `
           <tr>
-            <th><a class="link" href="`+baseURL+`/browse/`+x.key+`" target="_blank">`+x.key+`</a></th>
+            <th><a class="link" href="`+baseURL+`/browse/`+x.key+`" target="_blank" data-title="`+x.summary+`">`+x.key+`</a></th>
             `
             +
             [...Array(numberOfDaysInMonth(date)).keys()].map((day) => {
