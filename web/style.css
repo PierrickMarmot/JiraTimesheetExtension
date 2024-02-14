@@ -8,6 +8,16 @@ html, body {
   min-width: 500px;
 }
 
+a[data-title]:hover::after {
+  content: attr(data-title);
+  position: absolute;
+  top: -7px;
+  left: 100%;
+  color: black;
+  background: rgb(255 255 255 / 75%);
+  padding: 7px;
+}
+
 .primary-button {
   background-color: #0D66E4;
   border: none;
@@ -144,6 +154,11 @@ table {
   margin-left: 16px;
   margin-right: 16px;
   margin-bottom: 16px;
+}
+
+table th:first-child {
+  position: sticky;
+  left: 0;
 }
 
 .thoffday {
