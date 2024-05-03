@@ -93,7 +93,7 @@ function toggledDayPresence(dayPresence) {
 
 async function loadPresences(date) {
   try {
-    const result = await webBrowser.storage.local.get(["presences"])
+    const result = await webBrowser.storage.sync.get(["presences"])
 
     const monthKey = `${date.getUTCFullYear()}-${date.getUTCMonth()}`;
 
@@ -120,7 +120,7 @@ async function savePresence(date, presence) {
     //   ...
     // ]
 
-    const result = await webBrowser.storage.local.get(["presences"]);
+    const result = await webBrowser.storage.sync.get(["presences"]);
 
     var presences = result.presences ?? [];
 
@@ -168,7 +168,7 @@ async function savePresence(date, presence) {
       });
     }
     
-    await webBrowser.storage.local.set({
+    await webBrowser.storage.sync.set({
       presences: presences
     });
 
@@ -202,7 +202,7 @@ async function applyNewPresence(date, presence, scrollOffset) {
 
 async function loadSettings() {
   try {
-    const result = await webBrowser.storage.local.get(["settings"])
+    const result = await webBrowser.storage.sync.get(["settings"])
 
     return {
         apiToken: result.settings.apiToken,
@@ -226,7 +226,7 @@ async function saveSettings(apiToken, baseURL, emailAddress, workingTimePerDay) 
   }
 
   try {
-    await webBrowser.storage.local.set({
+    await webBrowser.storage.sync.set({
       settings: {
         apiToken: apiToken,
         baseURL: baseURL,
