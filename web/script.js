@@ -243,31 +243,66 @@ async function saveSettings(apiToken, baseURL, emailAddress, workingTimePerDay) 
 
 async function loadData(apiToken, baseURL, emailAddress, date) {
   try {
-    const headers = new Headers({
-      "Accept": "application/json",
-      "Content-Type": "application/json",
-      "Authorization": `Basic ${btoa(`${emailAddress}:${apiToken}`)}`
-    });
+    const issues = [];
 
-    const filterStartDate = `${date.getUTCFullYear()}-${(date.getUTCMonth() + 1)}-01`;
-    const filterEndDate = `${date.getUTCFullYear()}-${(date.getUTCMonth() + 1)}-${numberOfDaysInMonth(date)}`;
-    const filterRequest = `worklogDate >= ${filterStartDate} AND worklogDate <= ${filterEndDate} AND worklogAuthor = currentUser() AND timeSpent > 0 order by created ASC`;
-    const encodedFilterRequest = encodeURI(filterRequest);
-    const requestURL = `${baseURL}/rest/api/3/search?fields=worklog,summary&maxResults=10000&jql=${encodedFilterRequest}`;
-    const response = await fetch(requestURL, { method: "GET", headers: headers });
-    const responseText = await response.text()
-    const responseJSON = JSON.parse(responseText);
+    var shouldFetchNextPage = true;
+    var maxResults = 100;
+    var startAt = 0;
 
-    // TODO PAGINATION
-    // https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issue-search/#api-rest-api-3-search-get
-    // https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issue-worklogs/#api-rest-api-3-issue-issueidorkey-worklog-get
-    // fetch(baseURL + "/rest/api/3/issue/"+key+"/worklog", { method: "GET", headers: headers})
+    while (shouldFetchNextPage) {
+      try {
+        const response = await fetchIssues(apiToken, baseURL, emailAddress, date, startAt, maxResults);
 
-    return responseJSON.issues.map((issue) => {
-      return {
+        const responseMaxResults = response.maxResults;
+        const responseStartAt = response.startAt;
+        const responseTotal = response.total;
+        const responseIssues = response.issues;
+
+        shouldFetchNextPage = (responseMaxResults + responseStartAt) < responseTotal;
+        maxResults = responseMaxResults;
+        startAt += responseMaxResults;
+
+        issues.push(...responseIssues);
+      } catch (error) {
+        shouldFetchNextPage = false;
+      }
+    }
+
+    const result = [];
+
+    for (const issue of issues) {
+      const issueWorklogsMaxResults = issue.fields.worklog.maxResults;
+      const issueWorklogsStartAt = issue.fields.worklog.startAt;
+      const issueWorklogsTotal = issue.fields.worklog.total;
+      const issueWorklogs = [...issue.fields.worklog.worklogs];
+
+      shouldFetchNextPage = (issueWorklogsMaxResults + issueWorklogsStartAt) < issueWorklogsTotal;
+      maxResults = 100;
+      startAt = issueWorklogs.length;
+
+      while (shouldFetchNextPage) {
+        try {
+          const response = await fetchIssueWorklogs(apiToken, baseURL, emailAddress, issue.key, startAt, maxResults);
+          
+          const responseMaxResults = response.maxResults;
+          const responseStartAt = response.startAt;
+          const responseTotal = response.total;
+          const responseWorklogs = response.worklogs;
+
+          shouldFetchNextPage = (responseMaxResults + responseStartAt) < responseTotal;
+          maxResults = responseMaxResults;
+          startAt += responseMaxResults;
+
+          issueWorklogs.push(...responseWorklogs);
+        } catch (error) {
+          shouldFetchNextPage = false;
+        }
+      }
+
+      result.push({
         key: issue.key,
         summary: issue.fields.summary,
-        worklogs: issue.fields.worklog.worklogs.map((worklog) => {
+        worklogs: issueWorklogs.map((worklog) => {
           try {
             const startedDate = new Date(worklog.started);
 
@@ -282,11 +317,58 @@ async function loadData(apiToken, baseURL, emailAddress, date) {
           } catch (error) {
             return null;
           }
-        }).filter(Boolean),
-      }
-    }).filter((object) => object.worklogs.length > 0);
+        }).filter(Boolean)
+      })
+    }
+
+    return result.filter((object) => object.worklogs.length > 0);
   } catch (error) {
     return [];
+  }
+};
+
+async function fetchIssues(apiToken, baseURL, emailAddress, date, startAt, maxResults) {
+  // https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issue-search/#api-rest-api-3-search-get
+
+  try {
+    const headers = new Headers({
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "Authorization": `Basic ${btoa(`${emailAddress}:${apiToken}`)}`
+    });
+
+    const filterStartDate = `${date.getUTCFullYear()}-${(date.getUTCMonth() + 1)}-01`;
+    const filterEndDate = `${date.getUTCFullYear()}-${(date.getUTCMonth() + 1)}-${numberOfDaysInMonth(date)}`;
+    const filterRequest = `worklogDate >= ${filterStartDate} AND worklogDate <= ${filterEndDate} AND worklogAuthor = currentUser() AND timeSpent > 0 order by created ASC`;
+    const encodedFilterRequest = encodeURI(filterRequest);
+    const requestURL = `${baseURL}/rest/api/3/search?fields=worklog,summary&startAt=${startAt}&maxResults=${maxResults}&jql=${encodedFilterRequest}`;
+    const response = await fetch(requestURL, { method: "GET", headers: headers });
+    const responseText = await response.text()
+    const responseJSON = JSON.parse(responseText);
+
+    return responseJSON;
+  } catch (error) {
+    return null;
+  }
+};
+
+async function fetchIssueWorklogs(apiToken, baseURL, emailAddress, issueKey, startAt, maxResults) {
+  // https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issue-worklogs/#api-rest-api-3-issue-issueidorkey-worklog-get
+  try {
+    const headers = new Headers({
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "Authorization": `Basic ${btoa(`${emailAddress}:${apiToken}`)}`
+    });
+
+    const requestURL = `${baseURL}/rest/api/3/issue/${issueKey}/worklog?startAt=${startAt}&maxResults=${maxResults}`;
+    const response = await fetch(requestURL, { method: "GET", headers: headers });
+    const responseText = await response.text()
+    const responseJSON = JSON.parse(responseText);
+
+    return responseJSON;
+  } catch (error) {
+    return null;
   }
 };
 
