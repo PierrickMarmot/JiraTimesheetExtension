@@ -328,7 +328,7 @@ async function loadData(apiToken, baseURL, emailAddress, date) {
 };
 
 async function fetchIssues(apiToken, baseURL, emailAddress, date, startAt, maxResults) {
-  // https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issue-search/#api-rest-api-3-search-get
+  // https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issue-search/#api-rest-api-3-issue-search-get
 
   try {
     const headers = new Headers({
@@ -340,8 +340,9 @@ async function fetchIssues(apiToken, baseURL, emailAddress, date, startAt, maxRe
     const filterStartDate = `${date.getUTCFullYear()}-${(date.getUTCMonth() + 1)}-01`;
     const filterEndDate = `${date.getUTCFullYear()}-${(date.getUTCMonth() + 1)}-${numberOfDaysInMonth(date)}`;
     const filterRequest = `worklogDate >= ${filterStartDate} AND worklogDate <= ${filterEndDate} AND worklogAuthor = currentUser() AND timeSpent > 0 order by created ASC`;
-    const encodedFilterRequest = encodeURI(filterRequest);
-    const requestURL = `${baseURL}/rest/api/3/search?fields=worklog,summary&startAt=${startAt}&maxResults=${maxResults}&jql=${encodedFilterRequest}`;
+    const encodedFilterRequest = encodeURIComponent(filterRequest);
+    // Use the new JQL search API endpoint
+    const requestURL = `${baseURL}/rest/api/3/search/jql?jql=${encodedFilterRequest}&fields=worklog,summary&startAt=${startAt}&maxResults=${maxResults}`;
     const response = await fetch(requestURL, { method: "GET", headers: headers });
     const responseText = await response.text()
     const responseJSON = JSON.parse(responseText);
@@ -354,6 +355,7 @@ async function fetchIssues(apiToken, baseURL, emailAddress, date, startAt, maxRe
 
 async function fetchIssueWorklogs(apiToken, baseURL, emailAddress, issueKey, startAt, maxResults) {
   // https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issue-worklogs/#api-rest-api-3-issue-issueidorkey-worklog-get
+
   try {
     const headers = new Headers({
       "Accept": "application/json",
